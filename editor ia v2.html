@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>editIA v2</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #06080d;
+    --surface: #0d1117;
+    --surface2: #161b24;
+    --border: #1e2633;
+    --accent: #00ff9d;
+    --text: #dde3ee;
+    --text-dim: #5a6478;
+    --text-dimmer: #2a3040;
+    --ai-bg: #071a10;
+    --ai-border: rgba(0,255,157,0.15);
+    --user-bg: #0d1420;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { background:var(--bg); color:var(--text); font-family:'DM Mono',monospace; height:100dvh; display:flex; flex-direction:column; overflow:hidden; }
+
+  .header { padding:14px 18px 10px; border-bottom:1px solid var(--border); flex-shrink:0; background:var(--bg); z-index:10; }
+  .header-row { display:flex; align-items:center; justify-content:space-between; }
+  .logo { font-family:'Syne',sans-serif; font-size:19px; font-weight:800; letter-spacing:-0.5px; }
+  .logo span { color:var(--accent); }
+  .logo sub { font-size:10px; color:var(--text-dim); vertical-align:baseline; margin-left:2px; }
+  .badge { font-size:10px; padding:3px 10px; border-radius:20px; border:1px solid var(--ai-border); color:var(--accent); letter-spacing:0.5px; display:flex; align-items:center; gap:5px; }
+  .badge::before { content:''; width:6px; height:6px; border-radius:50%; background:var(--accent); box-shadow:0 0 6px var(--accent); animation:blink 2s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .video-wrap { margin-top:10px; border-radius:10px; overflow:hidden; border:1px solid var(--border); display:none; background:#000; }
+  .video-wrap.show { display:block; }
+  .video-wrap video { width:100%; max-height:120px; object-fit:cover; display:block; }
+  .video-bar { display:flex; align-items:center; gap:8px; padding:7px 12px; background:var(--surface2); font-size:11px; }
+  .video-bar .vname { flex:1; color:var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .vtag { padding:2px 8px; border-radius:20px; font-size:10px; background:var(--accent); color:#000; font-weight:600; }
+
+  .frames-strip { display:none; gap:4px; padding:8px 0 0; overflow-x:auto; scrollbar-width:none; }
+  .frames-strip::-webkit-scrollbar { display:none; }
+  .frames-strip.show { display:flex; }
+  .frame-thumb { flex-shrink:0; width:50px; height:34px; border-radius:5px; object-fit:cover; border:1px solid var(--border); opacity:0.5; transition:all 0.2s; }
+  .frame-thumb.active { opacity:1; border-color:var(--accent); box-shadow:0 0 8px rgba(0,255,157,0.3); }
+
+  .chat { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:14px; scroll-behavior:smooth; }
+  .chat::-webkit-scrollbar { display:none; }
+
+  .welcome { display:flex; flex-direction:column; align-items:center; text-align:center; padding:28px 16px; gap:14px; animation:up 0.5s ease both; }
+  @keyframes up { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+  .welcome-icon { width:64px; height:64px; border-radius:18px; background:linear-gradient(135deg,#071a10,#03100a); border:1px solid var(--ai-border); display:flex; align-items:center; justify-content:center; font-size:28px; }
+  .welcome h2 { font-family:'Syne',sans-serif; font-size:20px; font-weight:700; line-height:1.25; }
+  .welcome h2 em { font-style:normal; color:var(--accent); }
+  .welcome p { font-size:12px; color:var(--text-dim); line-height:1.7; max-width:260px; }
+  .upload-cta { padding:13px 28px; background:var(--accent); color:#000; border:none; border-radius:12px; font-family:'Syne',sans-serif; font-size:15px; font-weight:700; cursor:pointer; transition:transform 0.15s; }
+  .upload-cta:active { transform:scale(0.95); }
+  .hints { display:flex; flex-wrap:wrap; gap:7px; justify-content:center; }
+  .hint { padding:7px 13px; border-radius:20px; border:1px solid var(--border); background:var(--surface); font-size:11px; color:var(--text-dim); cursor:pointer; transition:all 0.2s; }
+  .hint:active { border-color:var(--accent); color:var(--accent); }
+
+  .bwrap { display:flex; flex-direction:column; gap:3px; animation:up 0.25s ease both; }
+  .bwrap.user { align-items:flex-end; }
+  .bwrap.ai { align-items:flex-start; }
+  .blabel { font-size:9px; color:var(--text-dimmer); padding:0 4px; text-transform:uppercase; letter-spacing:0.8px; }
+  .bubble { max-width:88%; padding:11px 15px; border-radius:15px; font-size:13px; line-height:1.65; }
+  .bubble.user { background:var(--user-bg); border:1px solid var(--border); border-bottom-right-radius:3px; }
+  .bubble.ai { background:var(--ai-bg); border:1px solid var(--ai-border); border-bottom-left-radius:3px; }
+  .aitag { display:inline-block; font-size:9px; padding:2px 8px; border-radius:20px; background:rgba(0,255,157,0.08); color:var(--accent); margin-bottom:7px; letter-spacing:0.5px; }
+
+  .prog-wrap { padding:12px 15px; background:var(--ai-bg); border:1px solid var(--ai-border); border-radius:15px; border-bottom-left-radius:3px; font-size:12px; display:flex; flex-direction:column; gap:6px; }
+  .prog-label { color:var(--accent); font-size:11px; }
+  .prog-bg { height:3px; border-radius:3px; background:var(--surface2); overflow:hidden; }
+  .prog-fill { height:100%; border-radius:3px; background:var(--accent); width:0%; transition:width 0.4s ease; box-shadow:0 0 8px var(--accent); }
+  .prog-step { color:var(--text-dim); font-size:11px; }
+
+  .typing { display:flex; gap:4px; align-items:center; padding:13px 15px; background:var(--ai-bg); border:1px solid var(--ai-border); border-radius:15px; border-bottom-left-radius:3px; width:fit-content; }
+  .typing span { width:5px; height:5px; border-radius:50%; background:var(--accent); animation:bounce 1.2s infinite; }
+  .typing span:nth-child(2) { animation-delay:0.2s; }
+  .typing span:nth-child(3) { animation-delay:0.4s; }
+  @keyframes bounce { 0%,60%,100%{transform:translateY(0);opacity:0.4} 30%{transform:translateY(-5px);opacity:1} }
+
+  .input-area { padding:10px 14px 22px; border-top:1px solid var(--border); background:var(--bg); flex-shrink:0; }
+  .action-row { display:flex; gap:7px; margin-bottom:8px; }
+  .abtn { flex:1; padding:9px; border-radius:9px; border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font-family:'DM Mono',monospace; font-size:11px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; transition:all 0.2s; }
+  .abtn:active { border-color:var(--accent); color:var(--accent); }
+  .abtn.primary { background:rgba(0,255,157,0.08); border-color:var(--ai-border); color:var(--accent); }
+  .input-row { display:flex; gap:8px; align-items:flex-end; }
+  .tinput { flex:1; background:var(--surface); border:1px solid var(--border); border-radius:13px; padding:11px 14px; color:var(--text); font-family:'DM Mono',monospace; font-size:13px; resize:none; outline:none; max-height:110px; line-height:1.5; transition:border-color 0.2s; }
+  .tinput:focus { border-color:rgba(0,255,157,0.25); }
+  .tinput::placeholder { color:var(--text-dimmer); }
+  .tinput:disabled { opacity:0.4; }
+  .sbtn { width:44px; height:44px; border-radius:11px; background:var(--accent); border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:transform 0.15s; }
+  .sbtn:active { transform:scale(0.9); }
+  .sbtn:disabled { opacity:0.3; }
+  .sbtn svg { width:18px; height:18px; fill:#000; }
+  .notice { font-size:11px; color:var(--text-dimmer); text-align:center; padding:6px; }
+  #fileInput,#canvasEl { display:none; }
+</style>
+</head>
+<body>
+
+<canvas id="canvasEl"></canvas>
+
+<div class="header">
+  <div class="header-row">
+    <div class="logo">edit<span>IA</span><sub>v2</sub></div>
+    <div class="badge">visión activa</div>
+  </div>
+  <div class="frames-strip" id="framesStrip"></div>
+  <div class="video-wrap" id="videoWrap">
+    <video id="videoEl" playsinline muted></video>
+    <div class="video-bar">
+      <span class="vname" id="vname">—</span>
+      <span class="vtag">listo</span>
+    </div>
+  </div>
+</div>
+
+<div class="chat" id="chat">
+  <div class="welcome" id="welcome">
+    <div class="welcome-icon">🎬</div>
+    <h2>Analizo tu video<br/><em>frame a frame</em></h2>
+    <p>Subo el video, extraigo imágenes clave y las analizo para proponerte ediciones reales con timestamps.</p>
+    <button class="upload-cta" onclick="document.getElementById('fileInput').click()">＋ Subir video</button>
+    <div class="hints">
+      <div class="hint" onclick="quickHint(this)">🎵 Reel energético</div>
+      <div class="hint" onclick="quickHint(this)">✂️ Solo lo mejor</div>
+      <div class="hint" onclick="quickHint(this)">🎥 Estilo cine</div>
+      <div class="hint" onclick="quickHint(this)">⚡ TikTok viral</div>
+    </div>
+  </div>
+</div>
+
+<div class="input-area">
+  <div class="action-row" id="actionRow" style="display:none;">
+    <button class="abtn" onclick="document.getElementById('fileInput').click()">📎 Cambiar</button>
+    <button class="abtn primary" onclick="analyzeFrames()">🤖 Analizar video</button>
+  </div>
+  <p class="notice" id="notice">Sube un video para comenzar</p>
+  <div class="input-row">
+    <textarea class="tinput" id="msgInput" placeholder="Dime qué buscas en tu video..." rows="1"
+      disabled oninput="autoResize(this)" onkeydown="handleKey(event)"></textarea>
+    <button class="sbtn" id="sbtn" onclick="sendMsg()" disabled>
+      <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+    </button>
+  </div>
+</div>
+
+<input type="file" id="fileInput" accept="video/*" onchange="loadVideo(event)">
+
+<script>
+  let frames = [], frameTimes = [], messages = [], loading = false;
+  let videoEl = document.getElementById('videoEl');
+  let canvas  = document.getElementById('canvasEl');
+  let ctx     = canvas.getContext('2d');
+  let vname   = '';
+
+  // ── LOAD VIDEO ──
+  function loadVideo(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    vname = file.name;
+    videoEl.src = URL.createObjectURL(file);
+    videoEl.load();
+    document.getElementById('vname').textContent = file.name;
+    document.getElementById('videoWrap').classList.add('show');
+    document.getElementById('welcome').style.display = 'none';
+    document.getElementById('actionRow').style.display = 'flex';
+    document.getElementById('notice').style.display = 'none';
+    document.getElementById('msgInput').disabled = false;
+    document.getElementById('sbtn').disabled = false;
+    messages = [];
+    addAI('¡Video cargado! 🎬 Toca <strong>Analizar video</strong> para que vea los momentos clave, o cuéntame qué estilo buscas.');
+  }
+
+  // ── EXTRACT FRAMES ──
+  function seekAndCapture(t) {
+    return new Promise(resolve => {
+      videoEl.currentTime = t;
+      videoEl.onseeked = () => {
+        canvas.width  = Math.min(videoEl.videoWidth, 640);
+        canvas.height = Math.min(videoEl.videoHeight, 360);
+        ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+        const b64 = canvas.toDataURL('image/jpeg', 0.55).split(',')[1];
+        const thumb = canvas.toDataURL('image/jpeg', 0.4);
+        frames.push(b64);
+        frameTimes.push(t);
+        // thumbnail
+        const strip = document.getElementById('framesStrip');
+        strip.classList.add('show');
+        const img = document.createElement('img');
+        img.className = 'frame-thumb';
+        img.src = thumb;
+        strip.appendChild(img);
+        resolve();
+      };
+    });
+  }
+
+  async function extractFrames(duration) {
+    frames = []; frameTimes = [];
+    document.getElementById('framesStrip').innerHTML = '';
+    document.getElementById('framesStrip').classList.remove('show');
+    const count = Math.min(8, Math.floor(duration));
+    const step  = duration / count;
+    for (let i = 0; i < count; i++) {
+      const t = Math.min(i * step + step * 0.5, duration - 0.1);
+      await seekAndCapture(t);
+      updateProg(Math.round(((i+1)/count)*60), `Frame ${i+1} de ${count}`);
+    }
+  }
+
+  // ── ANALYZE ──
+  async function analyzeFrames() {
+    if (loading) return;
+    loading = true;
+    const progEl = addProgBar();
+
+    try {
+      updateProg(5, 'Leyendo duración del video...');
+
+      // Esperar metadata con timeout
+      const duration = await new Promise((resolve, reject) => {
+        if (videoEl.readyState >= 1 && videoEl.duration > 0) {
+          resolve(videoEl.duration); return;
+        }
+        const t = setTimeout(() => reject(new Error('Video tardó mucho. Intenta con uno más corto.')), 12000);
+        videoEl.onloadedmetadata = () => { clearTimeout(t); resolve(videoEl.duration); };
+        videoEl.load();
+      });
+      updateProg(10, 'Extrayendo frames...');
+      await extractFrames(duration);
+      updateProg(65, 'Enviando a la IA...');
+
+      // Construir contenido con frames
+      const content = [{
+        type: 'text',
+        text: `Analiza estos ${frames.length} frames del video "${vname}" (duración ~${Math.round(duration)}s). Timestamps: ${frameTimes.map(t=>t.toFixed(1)+'s').join(', ')}.
+
+Dime:
+1. ¿Qué ocurre en el video?
+2. ¿Cuáles son los momentos más interesantes?
+3. Propuesta de edición concreta: qué cortar, transiciones, música sugerida, efectos.
+4. Plan de edición con timestamps.
+
+Responde en español, sé creativo y directo.`
+      }];
+
+      frames.forEach((f, i) => {
+        content.push({ type:'text', text:`Frame ${i+1} — ${frameTimes[i].toFixed(1)}s:` });
+        content.push({ type:'image', source:{ type:'base64', media_type:'image/jpeg', data:f } });
+      });
+
+      messages.push({ role:'user', content });
+
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'anthropic-version':'2023-06-01',
+          'anthropic-dangerous-direct-browser-access':'true'
+        },
+        body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:1500, messages })
+      });
+
+      const data = await res.json();
+      updateProg(100, '¡Análisis listo!');
+      await delay(500);
+      progEl.remove();
+
+      if (data.error) throw new Error(data.error.message);
+
+      const reply = data.content.map(c => c.text||'').join('');
+      messages.push({ role:'assistant', content:reply });
+      addAI(reply);
+      document.querySelectorAll('.frame-thumb').forEach(el => el.classList.add('active'));
+
+    } catch(err) {
+      progEl.remove();
+      addAI(`⚠️ Error: ${err.message}`);
+    }
+    loading = false;
+  }
+
+  // ── SEND MSG ──
+  async function sendMsg() {
+    const inp = document.getElementById('msgInput');
+    const text = inp.value.trim();
+    if (!text || loading) return;
+    inp.value = ''; autoResize(inp);
+    loading = true;
+    addUser(text);
+    messages.push({ role:'user', content: text });
+    const t = addTyping();
+
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'anthropic-version':'2023-06-01',
+          'anthropic-dangerous-direct-browser-access':'true'
+        },
+        body: JSON.stringify({
+          model:'claude-sonnet-4-20250514',
+          max_tokens:1000,
+          system:`Eres un editor de video con IA y criterio creativo propio. Propones ideas concretas de edición: cortes, transiciones, música, efectos de color, texto. Usa ✂️ cortes, 🎵 música, ✨ efectos, 🎨 color, 📝 texto. Responde en español, sé conciso y creativo.`,
+          messages
+        })
+      });
+      const data = await res.json();
+      t.remove();
+      if (data.error) throw new Error(data.error.message);
+      const reply = data.content.map(c=>c.text||'').join('');
+      messages.push({ role:'assistant', content:reply });
+      addAI(reply);
+    } catch(err) {
+      t.remove();
+      addAI(`⚠️ Error: ${err.message}`);
+    }
+    loading = false;
+  }
+
+  // ── PROGRESS BAR ──
+  let progFill, progLabel, progStep;
+  function addProgBar() {
+    const chat = document.getElementById('chat');
+    const w = document.createElement('div');
+    w.className = 'bwrap ai';
+    w.innerHTML = `
+      <div class="blabel">editIA</div>
+      <div class="prog-wrap">
+        <div class="prog-label" id="pLabel">Iniciando...</div>
+        <div class="prog-bg"><div class="prog-fill" id="pFill"></div></div>
+        <div class="prog-step" id="pStep"></div>
+      </div>`;
+    chat.appendChild(w);
+    progFill  = document.getElementById('pFill');
+    progLabel = document.getElementById('pLabel');
+    progStep  = document.getElementById('pStep');
+    scrollBot();
+    return w;
+  }
+
+  function updateProg(pct, step) {
+    if (progFill)  progFill.style.width = pct + '%';
+    if (progLabel) progLabel.textContent = `Analizando... ${pct}%`;
+    if (progStep)  progStep.textContent  = step;
+    scrollBot();
+  }
+
+  // ── UI ──
+  function addUser(text) {
+    const chat = document.getElementById('chat');
+    const w = document.createElement('div');
+    w.className = 'bwrap user';
+    w.innerHTML = `<div class="blabel">tú</div><div class="bubble user">${esc(text)}</div>`;
+    chat.appendChild(w); scrollBot();
+  }
+
+  function addAI(text) {
+    const chat = document.getElementById('chat');
+    const w = document.createElement('div');
+    w.className = 'bwrap ai';
+    w.innerHTML = `<div class="blabel">editIA</div><div class="bubble ai"><span class="aitag">IA · visión</span><br/>${fmt(text)}</div>`;
+    chat.appendChild(w); scrollBot();
+  }
+
+  function addTyping() {
+    const chat = document.getElementById('chat');
+    const w = document.createElement('div');
+    w.className = 'bwrap ai';
+    w.innerHTML = `<div class="blabel">editIA</div><div class="typing"><span></span><span></span><span></span></div>`;
+    chat.appendChild(w); scrollBot();
+    return w;
+  }
+
+  function fmt(t) {
+    return t.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\*(.*?)\*/g,'<em>$1</em>').replace(/\n/g,'<br/>');
+  }
+
+  function esc(t) {
+    return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function scrollBot() {
+    const c = document.getElementById('chat');
+    setTimeout(() => c.scrollTop = c.scrollHeight, 50);
+  }
+
+  function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 110) + 'px';
+  }
+
+  function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
+  }
+
+  function quickHint(el) {
+    if (!document.getElementById('msgInput').disabled) {
+      document.getElementById('msgInput').value = el.textContent.slice(2);
+      sendMsg();
+    } else {
+      document.getElementById('fileInput').click();
+    }
+  }
+
+  function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+</script>
+</body>
+</html>
